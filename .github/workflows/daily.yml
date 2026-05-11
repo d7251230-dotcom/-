@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install jq
-        run: sudo apt-get install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Read and increment day counter
         id: counter
@@ -22,6 +22,7 @@ jobs:
           if [ ! -f state.json ]; then
             echo '{"day": 0}' > state.json
           fi
+
           DAY=$(jq -r '.day' state.json)
           NEW_DAY=$((DAY+1))
           echo "{\"day\": $NEW_DAY}" > state.json
@@ -32,12 +33,10 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add state.json
-          git commit -m "Day ${{ steps.counter.outputs.day }}"
-          git push
-        continue-on-error: true
+          git commit -m "Day ${{ steps.counter.outputs.day }}" || echo "No changes to commit"
+          git push || echo "No push needed"
 
-      - name: Generate content from DeepSeek
-        id: generate
+      - name: Generate content from DeepSeek and push to Feishu
         run: |
           DAY=${{ steps.counter.outputs.day }}
           WEEKDAY=$(date -u +%u)
@@ -48,8 +47,12 @@ jobs:
             EXTRA=""
           fi
 
-          PROMPT="你是我的终极认知架构师。今天是第${DAY}天。按阶段自动递进（思维基础→文明→资本科技→权力组织→哲学原典→综合现实）。输出结构必须包括：
+          cat <<EOF > prompt.txt
+你是我的终极认知架构师。
+今天是第${DAY}天。
+按阶段自动递进（思维基础→文明→资本科技→权力组织→哲学原典→综合现实）。
 
+输出结构必须包括：
 【今日主题】
 【核心材料（具体章节/文章/播客）】
 【核心模型（3-6个）】
@@ -60,14 +63,21 @@ jobs:
 
 ${EXTRA}
 
-要求：高密度、不鸡汤、具体到章节或标题。"
+要求：
+- 高密度
+- 不鸡汤
+- 具体到章节或标题
+- 难度随天数递增
+EOF
 
           RESPONSE=$(curl -s https://api.deepseek.com/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.DEEPSEEK_API_KEY }}" \
             -d "{
               \"model\": \"deepseek-chat\",
-              \"messages\": [{\"role\": \"user\", \"content\": \"$PROMPT\"}],
+              \"messages\": [
+                {\"role\": \"user\", \"content\": \"$(cat prompt.txt | sed 's/"/\\"/g')\"}
+              ],
               \"temperature\": 0.7
             }")
 
