@@ -46,10 +46,111 @@ jobs:
           API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
+          python3 << 'PYTHON'
+          import subprocess
 
-          PROMPT="请生成一份高质量 Markdown 格式认知日报。包含：标题、今日主题、核心模型、现实映射、侃侃而谈示范、输出任务。排版清晰。"
+          today = subprocess.check_output(
+              "TZ='Asia/Shanghai' date '+%Y年%m月%d日'",
+              shell=True
+          ).decode().strip()
 
-          JSON=$(jq -n --arg p "$PROMPT" '{model:"deepseek-chat",messages:[{role:"user",content:$p}],temperature:0.7}')
+          prompt = f'''今天是{today}。
+
+你是我的长期认知升级教练、现实世界观察者与跨学科策展人。
+
+你的目标不是灌输知识，而是帮助一个中国大学生长期、稳定、科学地建立底层认知结构，让他未来面对大多数现实话题时，都能够有逻辑、有模型、有现实感地表达与思考。
+
+真正目标：
+
+用经典底层模型，解释当代现实世界。
+
+内容原则：
+
+- 不鸡汤
+- 不成功学
+- 不伪深刻
+- 不制造焦虑
+- 不像短视频认知博主
+- 不像课程讲义
+- 不堆砌概念
+- 不故作高深
+- 不做热点新闻总结
+
+内容长期平衡：
+
+- 60%：经典长期有效模型（概率、激励机制、系统思维、供需、博弈、认知偏差、风险、组织、人性）
+- 30%：现代现实环境（AI、算法、互联网、大学生活、职业变化、信息环境）
+- 10%：历史与文明感（长期视角）
+
+必须做到：
+
+- 用经典模型解释新现实
+- 不拔苗助长
+- 长期可持续阅读
+- 不一次灌输过量信息
+- 重点是结构，而不是知识堆积
+
+优先结合近几年：
+AI、注意力经济、算法推荐、信息过载、大学生成长、职业变化、互联网文化。
+
+但不要写成科技新闻。
+
+控制在1200~2200字。
+
+输出必须是高质量 Markdown。
+
+输出结构：
+
+# 标题
+简洁、有思考感、不浮夸。
+
+## 今日主题
+讲清今天真正重要的问题。
+
+## 为什么这件事重要
+解释它为什么影响：
+大学生、长期成长、信息判断、职业与生活。
+
+## 核心模型
+只讲2~3个真正重要模型。
+
+每个模型包括：
+- 一句话定义
+- 一个现实案例
+- 为什么重要
+- 如何解释今天的问题
+
+## 现实映射
+映射到真实生活：
+学习、AI工具、社交、时间管理、职业选择、互联网环境。
+
+## 最新现实观察
+结合1~2个近几年真实变化。
+重点是：
+经典模型如何解释新现象。
+
+## 侃侃而谈示范
+模拟自然、有层次感、不装的表达。
+像聪明人聊天。
+
+## 今日行动
+只给一个真正小而具体的行动。
+
+## 思考问题
+提出一个真正值得思考的问题。
+
+整体气质必须：
+高级、克制、现实、长期主义、不油腻、不爹味、不装懂。
+'''
+
+          with open("prompt.txt", "w", encoding="utf-8") as f:
+              f.write(prompt)
+          PYTHON
+
+          PROMPT=$(cat prompt.txt)
+
+          JSON=$(jq -n --arg p "$PROMPT" \
+            '{model:"deepseek-chat",messages:[{role:"user",content:$p}],temperature:0.7}')
 
           RESPONSE=$(curl -s https://api.deepseek.com/v1/chat/completions \
             -H "Content-Type: application/json" \
@@ -66,12 +167,9 @@ jobs:
           APP_ID: ${{ secrets.FEISHU_APP_ID }}
           APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
         run: |
-
           RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal \
             -H "Content-Type: application/json" \
             -d "{\"app_id\":\"$APP_ID\",\"app_secret\":\"$APP_SECRET\"}")
-
-          echo "$RESPONSE"
 
           TOKEN=$(echo "$RESPONSE" | jq -r '.tenant_access_token')
 
@@ -82,15 +180,12 @@ jobs:
         env:
           TOKEN: ${{ steps.token.outputs.token }}
         run: |
-
           RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/drive/v1/files/upload_all \
             -H "Authorization: Bearer $TOKEN" \
             -F "file_name=report.md" \
             -F "parent_type=explorer" \
             -F "size=$(wc -c < report.md)" \
             -F "file=@report.md")
-
-          echo "$RESPONSE"
 
           FILE_TOKEN=$(echo "$RESPONSE" | jq -r '.data.file_token')
 
@@ -102,7 +197,6 @@ jobs:
           FILE_TOKEN: ${{ steps.upload.outputs.filetoken }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
-
           LINK="https://www.feishu.cn/file/${FILE_TOKEN}"
 
           PAYLOAD=$(jq -n \
