@@ -1,4 +1,4 @@
-name: Daily Elite Feishu Doc Push
+name: Daily Elite Markdown Push
 
 on:
   schedule:
@@ -38,12 +38,12 @@ jobs:
           git commit -m "Day ${{ steps.counter.outputs.day }}" || true
           git push || true
 
-      - name: Generate content from DeepSeek
+      - name: Generate markdown content
         env:
           API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
-          PROMPT="你是我的终极认知架构师。今天是第${DAY}天。请输出：今日主题、核心材料、核心模型、现实映射、侃侃而谈示范、输出任务。高密度，不鸡汤。"
+          PROMPT="请生成一份高质量 Markdown 格式认知日报。包含：标题、今日主题、核心模型、现实映射、侃侃而谈示范、输出任务。排版清晰。"
 
           JSON=$(jq -n --arg p "$PROMPT" '{model:"deepseek-chat",messages:[{role:"user",content:$p}],temperature:0.7}')
 
@@ -54,7 +54,7 @@ jobs:
 
           CONTENT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
 
-          echo "$CONTENT" > content.txt
+          echo "$CONTENT" > report.md
 
       - name: Get Feishu Access Token
         id: token
@@ -70,31 +70,33 @@ jobs:
 
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Create Feishu Document
-        id: doc
+      - name: Upload markdown file
+        id: upload
         env:
           TOKEN: ${{ steps.token.outputs.token }}
-          DAY: ${{ steps.counter.outputs.day }}
         run: |
-          RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/docx/v1/documents \
+          RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/drive/v1/files/upload_all \
             -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"title\":\"📚 认知升级 Day ${DAY}\"}")
+            -F "file_name=report.md" \
+            -F "parent_type=explorer" \
+            -F "parent_node=0" \
+            -F "size=$(wc -c < report.md)" \
+            -F "file=@report.md")
 
-          DOC_ID=$(echo "$RESPONSE" | jq -r '.data.document.document_id')
+          FILE_TOKEN=$(echo "$RESPONSE" | jq -r '.data.file_token')
 
-          echo "docid=$DOC_ID" >> $GITHUB_OUTPUT
+          echo "filetoken=$FILE_TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Send document link to Feishu
+      - name: Send file link to Feishu
         env:
           WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          DOC_ID: ${{ steps.doc.outputs.docid }}
+          FILE_TOKEN: ${{ steps.upload.outputs.filetoken }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
-          LINK="https://feishu.cn/docx/${DOC_ID}"
+          LINK="https://feishu.cn/file/${FILE_TOKEN}"
 
           PAYLOAD=$(jq -n \
-            --arg text "【认知】📚 Day ${DAY}\n\n云文档已生成：\n${LINK}" \
+            --arg text "【认知】📚 Day ${DAY}\n\nMarkdown 文件已生成：\n${LINK}" \
             '{msg_type:"text",content:{text:$text}}')
 
           curl -s -X POST "$WEBHOOK" \
