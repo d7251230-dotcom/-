@@ -27,6 +27,7 @@ jobs:
           NEW_DAY=$((DAY+1))
 
           echo "{\"day\":$NEW_DAY}" > state.json
+
           echo "day=$NEW_DAY" >> $GITHUB_OUTPUT
 
       - name: Commit updated day
@@ -35,7 +36,9 @@ jobs:
           git config user.email "actions@github.com"
 
           git add state.json
+
           git commit -m "Day ${{ steps.counter.outputs.day }}" || true
+
           git push || true
 
       - name: Generate markdown content
@@ -43,6 +46,7 @@ jobs:
           API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
+
           PROMPT="请生成一份高质量 Markdown 格式认知日报。包含：标题、今日主题、核心模型、现实映射、侃侃而谈示范、输出任务。排版清晰。"
 
           JSON=$(jq -n --arg p "$PROMPT" '{model:"deepseek-chat",messages:[{role:"user",content:$p}],temperature:0.7}')
@@ -62,9 +66,12 @@ jobs:
           APP_ID: ${{ secrets.FEISHU_APP_ID }}
           APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
         run: |
+
           RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal \
             -H "Content-Type: application/json" \
             -d "{\"app_id\":\"$APP_ID\",\"app_secret\":\"$APP_SECRET\"}")
+
+          echo "$RESPONSE"
 
           TOKEN=$(echo "$RESPONSE" | jq -r '.tenant_access_token')
 
@@ -75,6 +82,7 @@ jobs:
         env:
           TOKEN: ${{ steps.token.outputs.token }}
         run: |
+
           RESPONSE=$(curl -s -X POST https://open.feishu.cn/open-apis/drive/v1/files/upload_all \
             -H "Authorization: Bearer $TOKEN" \
             -F "file_name=report.md" \
@@ -82,6 +90,8 @@ jobs:
             -F "parent_node=0" \
             -F "size=$(wc -c < report.md)" \
             -F "file=@report.md")
+
+          echo "$RESPONSE"
 
           FILE_TOKEN=$(echo "$RESPONSE" | jq -r '.data.file_token')
 
@@ -93,7 +103,8 @@ jobs:
           FILE_TOKEN: ${{ steps.upload.outputs.filetoken }}
           DAY: ${{ steps.counter.outputs.day }}
         run: |
-          LINK="https://feishu.cn/file/${FILE_TOKEN}"
+
+          LINK="https://www.feishu.cn/file/${FILE_TOKEN}"
 
           PAYLOAD=$(jq -n \
             --arg text "【认知】📚 Day ${DAY}\n\nMarkdown 文件已生成：\n${LINK}" \
