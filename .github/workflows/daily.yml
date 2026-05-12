@@ -87,7 +87,6 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -F "file_name=report.md" \
             -F "parent_type=explorer" \
-            -F "parent_node=0" \
             -F "size=$(wc -c < report.md)" \
             -F "file=@report.md")
 
