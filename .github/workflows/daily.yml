@@ -138,21 +138,21 @@ jobs:
           echo "external_anchor=$EXTERNAL_ANCHOR" >> $GITHUB_OUTPUT
           echo "forbidden_terms=$FORBIDDEN_TERMS" >> $GITHUB_OUTPUT
 
-          - name: Read tomorrow's topic from schedule
-          id: next_schedule
-          run: |
-            DAY=${{ steps.counter.outputs.day }}
-            NEXT_DAY=$((DAY+1))
-            # 检查是否存在下一天（365天内）
-            if [ $NEXT_DAY -le 365 ]; then
-              NEXT_TOPIC=$(jq -r ".\"$NEXT_DAY\".topic" schedule.json)
-              NEXT_SUBTOPIC=$(jq -r ".\"$NEXT_DAY\".subtopic" schedule.json)
-            else
-              NEXT_TOPIC=""
-              NEXT_SUBTOPIC=""
-            fi
-            echo "next_topic=$NEXT_TOPIC" >> $GITHUB_OUTPUT
-            echo "next_subtopic=$NEXT_SUBTOPIC" >> $GITHUB_OUTPUT
+      - name: Read tomorrow's topic from schedule
+        id: next_schedule
+        run: |
+          DAY=${{ steps.counter.outputs.day }}
+          NEXT_DAY=$((DAY+1))
+          # 检查是否存在下一天（365天内）
+          if [ $NEXT_DAY -le 365 ]; then
+            NEXT_TOPIC=$(jq -r ".\"$NEXT_DAY\".topic" schedule.json)
+            NEXT_SUBTOPIC=$(jq -r ".\"$NEXT_DAY\".subtopic" schedule.json)
+          else
+            NEXT_TOPIC=""
+            NEXT_SUBTOPIC=""
+          fi
+          echo "next_topic=$NEXT_TOPIC" >> $GITHUB_OUTPUT
+          echo "next_subtopic=$NEXT_SUBTOPIC" >> $GITHUB_OUTPUT
 
       - name: Generate markdown content
         env:
